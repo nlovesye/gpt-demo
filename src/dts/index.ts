@@ -1,6 +1,6 @@
 export interface MessageVO {
   /** 对话角色 */
-  role: "You" | "ChatGPT";
+  role: "user" | "assistant";
   /** chatgpt消息 id */
   responseId?: ResponseMessage["id"];
   /** 消息内容 */
@@ -17,7 +17,7 @@ export type Response = {
   // Depending on whether you set "stream" to "true" and
   // whether you passed in "messages" or a "prompt", you
   // will get a different output shape
-  choices: NonChatChoice[];
+  choices: StreamingChoice[];
   created: number; // Unix timestamp
   model: string;
   object: "chat.completion" | "chat.completion.chunk";
@@ -41,10 +41,20 @@ type ResponseUsage = {
 };
 
 // Subtypes:
-type NonChatChoice = {
+type StreamingChoice = {
   finish_reason: string | null;
-  text: string;
+  delta: {
+    content: string | null;
+    role?: string;
+    tool_calls?: ToolCall[];
+  };
   error?: ErrorResponse;
+};
+
+type ToolCall = {
+  id: string;
+  type: "function";
+  function: unknown;
 };
 
 type ErrorResponse = {

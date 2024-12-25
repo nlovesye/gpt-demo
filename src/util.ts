@@ -1,8 +1,8 @@
-import { Response, ResponseMessage } from "./dts";
+import { MessageVO, Response, ResponseMessage } from "./dts";
 
 export async function getChatGPTMessage(
   apiKey: string,
-  prompt: string,
+  messages: Omit<MessageVO, "responseId">[],
   onMessage: (messageResponse: ResponseMessage) => void
 ) {
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -25,7 +25,7 @@ export async function getChatGPTMessage(
       // },
       stream: true,
 
-      prompt,
+      messages,
     }),
   });
 
@@ -58,7 +58,7 @@ export async function getChatGPTMessage(
       const text = str.replace("data:", "");
       try {
         const msg = JSON.parse(text) as Response;
-        onMessage({ id: msg.id, text: msg.choices[0]?.text || "" });
+        onMessage({ id: msg.id, text: msg.choices[0]?.delta?.content || "" });
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (error) {
         /* empty */

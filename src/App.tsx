@@ -1,4 +1,11 @@
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import {
+  KeyboardEventHandler,
+  memo,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   Avatar,
   Container,
@@ -43,7 +50,7 @@ const App = memo(function App() {
         : [
             ...prev.filter((o) => "loading" !== o.responseId),
             {
-              role: "ChatGPT",
+              role: "assistant",
               responseId: id,
               content: text,
             } satisfies MessageVO,
@@ -52,28 +59,35 @@ const App = memo(function App() {
   }, []);
 
   const onSend = useCallback(async () => {
+    if (!prompt || loading) {
+      return;
+    }
     // 用户消息
-    const userMsg = { role: "You", content: prompt } satisfies MessageVO;
+    const userMsg = { role: "user", content: prompt } satisfies MessageVO;
     // 用户消息
     const loadingMsg = {
-      role: "ChatGPT",
+      role: "assistant",
       responseId: "loading",
       content: "loading...",
     } satisfies MessageVO;
+    // 构建新对话上下文
+    const newMessages = [...messages, userMsg];
     // 增加聊天消息
-    setMessages((prev) => [...prev, userMsg, loadingMsg]);
+    setMessages([...newMessages, loadingMsg]);
     // 清空输入框
     setPrompt("");
 
     // 获取机器人消息并更新
     setLoading(true);
-    await getChatGPTMessage(apiKey, prompt, onMessage).catch((error: Error) => {
-      console.error(error);
-      setMessages((prev) => prev.filter((o) => "loading" !== o.responseId));
-      setTipMessage(error.message || "出错了!");
-    });
+    await getChatGPTMessage(apiKey, newMessages, onMessage).catch(
+      (error: Error) => {
+        console.error(error);
+        setMessages((prev) => prev.filter((o) => "loading" !== o.responseId));
+        setTipMessage(error.message || "出错了!");
+      }
+    );
     setLoading(false);
-  }, [apiKey, prompt, onMessage]);
+  }, [apiKey, prompt, messages, onMessage, loading]);
 
   const scrollToBottom = useCallback(() => {
     if (listRef.current) {
@@ -87,6 +101,19 @@ const App = memo(function App() {
     setKeyMode(false);
     setTipMessage("API key 设置完成");
   }, [prompt]);
+
+  const onKeyDown = useCallback<KeyboardEventHandler>(
+    ({ key, keyCode }) => {
+      if ("enter" === key.toLowerCase() || 13 === keyCode) {
+        if (!keyMode) {
+          onSend();
+        } else {
+          onSetApiKey();
+        }
+      }
+    },
+    [keyMode, onSend, onSetApiKey]
+  );
 
   // 有新消息更新触发滚动到底部
   useEffect(() => {
@@ -111,7 +138,11 @@ const App = memo(function App() {
         ref={listRef}
       >
         {messages.map(({ role, content }, i) => {
-          const isUser = "You" === role;
+          const isUser = "user" === role;
+          const primaryMap: Record<MessageVO["role"], string> = {
+            user: "You",
+            assistant: "ChatGPT",
+          };
           return (
             <ListItem key={i} alignItems="flex-start">
               <ListItemAvatar>
@@ -119,7 +150,7 @@ const App = memo(function App() {
                   {isUser ? <PersonIcon /> : <SmartToyIcon />}
                 </Avatar>
               </ListItemAvatar>
-              <ListItemText primary={role} secondary={content} />
+              <ListItemText primary={primaryMap[role]} secondary={content} />
             </ListItem>
           );
         })}
@@ -165,6 +196,7 @@ const App = memo(function App() {
             )}
           </InputAdornment>
         }
+        onKeyDown={onKeyDown}
       />
     </Container>
   );
